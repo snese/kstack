@@ -20,11 +20,20 @@ Invoke with: `qa`, `test this`, `qa check`, or `run qa`
 3. **Severity levels** — Critical / High / Medium / Low with a health score
 4. **Actionable** — each issue includes steps to reproduce and suggested fix
 
+## Pre-flight
+
+1. **Detect context**:
+   - In git repo on feature branch → diff-aware mode (read `git diff` against default branch)
+   - In git repo, no changes → report "nothing to test"
+   - User provided a URL → URL testing mode
+   - Not in git repo → ask user what to test
+2. **Detect default branch**: `git symbolic-ref refs/remotes/origin/HEAD` or fall back to `main`
+
 ## Modes
 
 | Mode | Trigger | What it does |
 |------|---------|-------------|
-| Diff-aware | `qa` (on feature branch) | Read `git diff main`, test affected areas |
+| Diff-aware | `qa` (on feature branch) | Read diff against default branch, test affected areas |
 | URL | `qa https://...` | Test the given URL systematically |
 | Quick | `qa --quick` | 30-second smoke test: homepage + top 5 pages |
 | Full | `qa --full` | Exhaustive exploration, 5-15 minutes |
@@ -34,8 +43,9 @@ Invoke with: `qa`, `test this`, `qa check`, or `run qa`
 ### 1. Identify What to Test
 ```bash
 # On a feature branch: read the diff
-git diff main...HEAD --stat
-git diff main...HEAD
+DEFAULT=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo main)
+git diff $DEFAULT...HEAD --stat
+git diff $DEFAULT...HEAD
 
 # Identify affected:
 # - Routes / endpoints

@@ -20,6 +20,15 @@ Invoke with: `code review`, `code-review`, `review`, or `review my code`
 3. **Structural issues > style issues** — ignore naming conventions; focus on logic, security, performance.
 4. **Severity levels** — Critical / High / Medium / Low so the user knows what to fix first.
 
+## Pre-flight
+
+1. **Detect context**: Are we in a git repo? Is there a diff to review?
+   - In git repo with uncommitted changes → review the uncommitted changes
+   - In git repo on feature branch → review diff against default branch
+   - User provided a file/snippet → review that directly
+   - Not in git repo, no file provided → ask user what to review
+2. **Detect language/framework** from file extensions and project files to tailor the checklist.
+
 ## Checklist
 
 ### Security
@@ -53,12 +62,13 @@ Invoke with: `code review`, `code-review`, `review`, or `review my code`
 
 ### 1. Get the Diff
 ```bash
-# If reviewing a branch
-git diff main...HEAD --stat
-git diff main...HEAD
+# In a git repo on feature branch
+git diff $(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo main)...HEAD
 
-# If reviewing a PR
-# Use GitHub API to get PR files
+# Or uncommitted changes
+git diff
+
+# Or user-provided code — review directly
 ```
 
 ### 2. Review Each File
@@ -69,7 +79,7 @@ Scan every changed file against the checklist above.
 ## Output Format
 
 ```markdown
-# Code Review: {branch/PR}
+# Code Review: {branch/PR/file}
 
 ## Summary
 - Changes: {N} files, +{N} -{N} lines
