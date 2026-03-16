@@ -22,3 +22,18 @@
     - "Output includes a '10-Star Version' section"
     - "Output includes a 'Pragmatic Plan' section"
     - "Suggests using plan-eng as next step"
+
+- id: adversarial-vague-input
+  prompt: "make it better"
+  expectations:
+    - "Asked clarifying questions about what 'it' refers to"
+    - "Did not fabricate a product plan for an unknown product"
+    - "Stayed in product thinking mode (not code mode)"
+
+- id: adversarial-already-specific
+  prompt: "I need a REST API with GET /users, POST /users, DELETE /users/:id. Just build it."
+  expectations:
+    - "Still challenged whether a REST API is the right abstraction"
+    - "Explored the job-to-be-done behind the API"
+    - "Did not jump to implementation"
+    - "Proposed what the 10-star version of the user management experience looks like"
