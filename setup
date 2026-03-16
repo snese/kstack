@@ -3,12 +3,28 @@
 # Usage: ./setup          (install)
 #        ./setup remove   (uninstall)
 #        ./setup verify   (check installation)
+#        ./setup help     (show usage)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$HOME/.kiro/skills"
 SKILLS=(plan-product plan-eng code-review ship qa retro)
 VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
+
+# --- Help ---
+if [[ "${1:-}" == "help" || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  echo "kstack v${VERSION} — cognitive mode skills for Kiro CLI"
+  echo ""
+  echo "Usage:"
+  echo "  ./setup          Install skills (safe to re-run)"
+  echo "  ./setup verify   Check installation health"
+  echo "  ./setup remove   Uninstall skills (keeps repo)"
+  echo "  ./setup help     Show this message"
+  echo ""
+  echo "Supported: macOS, Linux, WSL"
+  echo "Requires: Kiro CLI (https://kiro.dev)"
+  exit 0
+fi
 
 # --- Verify ---
 if [[ "${1:-}" == "verify" ]]; then
@@ -36,7 +52,7 @@ if [[ "${1:-}" == "verify" ]]; then
   for skill in "${SKILLS[@]}"; do
     dest="$SKILLS_DIR/$skill"
     if [[ -L "$dest" ]]; then
-      target=$(readlink -f "$dest")
+      target=$(readlink -f "$dest" 2>/dev/null || readlink "$dest")
       if [[ -f "$target/SKILL.md" ]]; then
         echo "  ✅ $skill → $target"
       else
@@ -63,19 +79,32 @@ fi
 # --- Uninstall ---
 if [[ "${1:-}" == "remove" ]]; then
   echo "Uninstalling kstack v${VERSION}..."
+  REMOVED=0
   for skill in "${SKILLS[@]}"; do
     dest="$SKILLS_DIR/$skill"
     if [[ -L "$dest" ]]; then
       rm -f "$dest"
       echo "  ✅ removed $skill"
+      REMOVED=$((REMOVED + 1))
     else
       echo "  ⏭️  $skill not a symlink, skipping"
     fi
   done
   echo ""
-  echo "kstack uninstalled. Repo at $SCRIPT_DIR left intact."
-  echo "To fully remove: rm -rf $SCRIPT_DIR"
+  if [[ $REMOVED -eq 0 ]]; then
+    echo "Nothing to remove — kstack was not installed."
+  else
+    echo "kstack uninstalled ($REMOVED skills removed). Repo at $SCRIPT_DIR left intact."
+    echo "To fully remove: rm -rf $SCRIPT_DIR"
+  fi
   exit 0
+fi
+
+# --- Invalid argument ---
+if [[ -n "${1:-}" ]]; then
+  echo "Unknown command: $1"
+  echo "Run ./setup help for usage."
+  exit 1
 fi
 
 # --- Install ---
@@ -92,6 +121,7 @@ echo "Installing kstack v${VERSION}..."
 mkdir -p "$SKILLS_DIR"
 
 INSTALLED=0
+SKIPPED=0
 for skill in "${SKILLS[@]}"; do
   src="$SCRIPT_DIR/$skill"
   dest="$SKILLS_DIR/$skill"
@@ -101,12 +131,22 @@ for skill in "${SKILLS[@]}"; do
     continue
   fi
 
-  # Handle existing target
+  # Already correctly linked — skip
+  if [[ -L "$dest" ]]; then
+    existing=$(readlink -f "$dest" 2>/dev/null || readlink "$dest")
+    expected=$(cd "$src" && pwd)
+    if [[ "$existing" == "$expected" ]]; then
+      echo "  ✅ $skill (already installed)"
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
+    rm -f "$dest"
+  fi
+
+  # Handle existing non-symlink directory
   if [[ -e "$dest" && ! -L "$dest" ]]; then
     echo "  ⚠️  $skill exists as directory, backing up to ${dest}.bak"
     mv "$dest" "${dest}.bak"
-  elif [[ -L "$dest" ]]; then
-    rm -f "$dest"
   fi
 
   ln -sf "$src" "$dest"
@@ -115,7 +155,11 @@ for skill in "${SKILLS[@]}"; do
 done
 
 echo ""
-echo "kstack v${VERSION}: ${INSTALLED}/${#SKILLS[@]} skills installed"
+if [[ $SKIPPED -eq ${#SKILLS[@]} ]]; then
+  echo "kstack v${VERSION}: already installed, all ${#SKILLS[@]} skills up to date."
+else
+  echo "kstack v${VERSION}: ${INSTALLED} installed, ${SKIPPED} already up to date."
+fi
 echo ""
 echo "Usage — tell Kiro any of these:"
 echo "  • plan product    — rethink the problem, find the 10-star version"
