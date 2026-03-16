@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# kstack setup — install/uninstall skills to ~/.kiro/skills/
+# kstack setup — install/uninstall/verify skills for Kiro CLI
 # Usage: ./setup          (install)
 #        ./setup remove   (uninstall)
+#        ./setup verify   (check installation)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,6 +10,57 @@ SKILLS_DIR="$HOME/.kiro/skills"
 SKILLS=(plan-product plan-eng code-review ship qa retro)
 VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
 
+# --- Verify ---
+if [[ "${1:-}" == "verify" ]]; then
+  echo "Verifying kstack v${VERSION}..."
+  ERRORS=0
+
+  # Check kiro-cli
+  if command -v kiro-cli &>/dev/null; then
+    KIRO_VER=$(kiro-cli --version 2>/dev/null || echo "unknown")
+    echo "  ✅ kiro-cli: $KIRO_VER"
+  else
+    echo "  ❌ kiro-cli not found in PATH"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Check skills dir
+  if [[ -d "$SKILLS_DIR" ]]; then
+    echo "  ✅ skills dir: $SKILLS_DIR"
+  else
+    echo "  ❌ skills dir missing: $SKILLS_DIR"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Check each skill
+  for skill in "${SKILLS[@]}"; do
+    dest="$SKILLS_DIR/$skill"
+    if [[ -L "$dest" ]]; then
+      target=$(readlink -f "$dest")
+      if [[ -f "$target/SKILL.md" ]]; then
+        echo "  ✅ $skill → $target"
+      else
+        echo "  ❌ $skill symlink exists but SKILL.md missing at $target"
+        ERRORS=$((ERRORS + 1))
+      fi
+    elif [[ -d "$dest" && -f "$dest/SKILL.md" ]]; then
+      echo "  ⚠️  $skill is a directory (not symlink) — works but won't auto-update"
+    else
+      echo "  ❌ $skill not installed"
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+
+  echo ""
+  if [[ $ERRORS -eq 0 ]]; then
+    echo "All checks passed. ✅"
+  else
+    echo "$ERRORS issue(s) found. Run ./setup to fix."
+  fi
+  exit $ERRORS
+fi
+
+# --- Uninstall ---
 if [[ "${1:-}" == "remove" ]]; then
   echo "Uninstalling kstack v${VERSION}..."
   for skill in "${SKILLS[@]}"; do
@@ -26,6 +78,16 @@ if [[ "${1:-}" == "remove" ]]; then
   exit 0
 fi
 
+# --- Install ---
+
+# Pre-flight: check kiro-cli
+if ! command -v kiro-cli &>/dev/null; then
+  echo "⚠️  kiro-cli not found in PATH."
+  echo "   Install it first: https://kiro.dev"
+  echo "   Continuing anyway (skills will be ready when kiro-cli is installed)..."
+  echo ""
+fi
+
 echo "Installing kstack v${VERSION}..."
 mkdir -p "$SKILLS_DIR"
 
@@ -41,7 +103,7 @@ for skill in "${SKILLS[@]}"; do
 
   # Handle existing target
   if [[ -e "$dest" && ! -L "$dest" ]]; then
-    echo "  ⚠️  $skill exists as directory (not symlink), backing up to ${dest}.bak"
+    echo "  ⚠️  $skill exists as directory, backing up to ${dest}.bak"
     mv "$dest" "${dest}.bak"
   elif [[ -L "$dest" ]]; then
     rm -f "$dest"
@@ -53,7 +115,7 @@ for skill in "${SKILLS[@]}"; do
 done
 
 echo ""
-echo "kstack v${VERSION}: ${INSTALLED}/${#SKILLS[@]} skills installed to $SKILLS_DIR"
+echo "kstack v${VERSION}: ${INSTALLED}/${#SKILLS[@]} skills installed"
 echo ""
 echo "Usage — tell Kiro any of these:"
 echo "  • plan product    — rethink the problem, find the 10-star version"
@@ -62,3 +124,5 @@ echo "  • code review     — paranoid review: what blows up in prod?"
 echo "  • ship            — sync main → test → push → PR"
 echo "  • qa              — diff-aware testing with health score"
 echo "  • retro           — data-driven retrospective"
+echo ""
+echo "Run ./setup verify to confirm everything is working."
