@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# kstack setup — install skills to ~/.kiro/skills/
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILLS_DIR="$HOME/.kiro/skills"
+SKILLS=(plan-product plan-eng code-review ship qa retro)
+
+mkdir -p "$SKILLS_DIR"
+
+for skill in "${SKILLS[@]}"; do
+  src="$SCRIPT_DIR/$skill"
+  dest="$SKILLS_DIR/$skill"
+  if [[ -d "$src" ]]; then
+    if [[ -L "$dest" ]]; then
+      rm -f "$dest"
+    fi
+    ln -sf "$src" "$dest"
+    echo "  ✅ $skill → $dest"
+  else
+    echo "  ⚠️  $skill not found in $SCRIPT_DIR"
+  fi
+done
+
+echo ""
+echo "kstack installed. ${#SKILLS[@]} skills linked to $SKILLS_DIR"
+echo "Try: tell Kiro 'plan product', 'code review', 'ship', 'qa', or 'retro'"
