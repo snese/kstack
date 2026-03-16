@@ -42,10 +42,18 @@ jobs:
                 --jq '[.commits[] | "- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])] | join("\n")' 2>/dev/null || echo "- Unable to fetch diff")
               FILES=$(gh api "repos/garrytan/gstack/compare/${LAST_KNOWN}...${LATEST}" \
                 --jq '[.files[].filename] | map(select(test("^(plan-ceo|plan-eng|review|ship|qa|retro)/"))) | if length == 0 then "No skill files changed" else join("\n") end' 2>/dev/null || echo "- Unable to determine")
+
+              # Categorize changes
+              PROMPT_CHANGES=$(gh api "repos/garrytan/gstack/compare/${LAST_KNOWN}...${LATEST}" \
+                --jq '[.files[] | select(.filename | test("^(plan-ceo|plan-eng|review|ship|qa|retro)/")) | select(.patch // "" | test("(You are|## |### |\\*\\*|prompt|instruction|checklist|principle|workflow)", "i")) | .filename] | unique | if length == 0 then "None detected" else join("\n") end' 2>/dev/null || echo "Unable to analyze")
+              FORMAT_CHANGES=$(gh api "repos/garrytan/gstack/compare/${LAST_KNOWN}...${LATEST}" \
+                --jq '[.files[] | select(.filename | test("^(plan-ceo|plan-eng|review|ship|qa|retro)/")) | select((.patch // "" | test("(You are|## |### |\\*\\*|prompt|instruction|checklist|principle|workflow)", "i")) | not) | .filename] | unique | if length == 0 then "None detected" else join("\n") end' 2>/dev/null || echo "Unable to analyze")
             else
               COMMITS=$(gh api 'repos/garrytan/gstack/commits?per_page=10' \
                 --jq '[.[] | "- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])] | join("\n")')
               FILES="First sync — review all skills"
+              PROMPT_CHANGES="First sync — review all"
+              FORMAT_CHANGES="First sync — review all"
             fi
 
             # Multi-line env vars
@@ -54,6 +62,12 @@ jobs:
             echo "EOF" >> "$GITHUB_ENV"
             echo "FILES<<EOF" >> "$GITHUB_ENV"
             echo "$FILES" >> "$GITHUB_ENV"
+            echo "EOF" >> "$GITHUB_ENV"
+            echo "PROMPT_CHANGES<<EOF" >> "$GITHUB_ENV"
+            echo "$PROMPT_CHANGES" >> "$GITHUB_ENV"
+            echo "EOF" >> "$GITHUB_ENV"
+            echo "FORMAT_CHANGES<<EOF" >> "$GITHUB_ENV"
+            echo "$FORMAT_CHANGES" >> "$GITHUB_ENV"
             echo "EOF" >> "$GITHUB_ENV"
           fi
 
@@ -82,6 +96,14 @@ jobs:
           ### Affected skill files
           ${FILES}
 
+          ### Change analysis
+
+          **Prompt/logic changes** (likely need porting):
+          ${PROMPT_CHANGES}
+
+          **Format-only changes** (likely safe to skip):
+          ${FORMAT_CHANGES}
+
           ### Mapping
           | gstack | kstack | Action needed? |
           |--------|--------|----------------|
@@ -96,7 +118,7 @@ jobs:
 
           ### Checklist
           - [ ] Read the gstack diff
-          - [ ] Identify changes relevant to kstack
+          - [ ] Review prompt/logic changes above
           - [ ] Adapt to Kiro CLI SKILL.md format (remove Go templates, Playwright, Greptile, slash commands)
           - [ ] Update affected skills
           - [ ] Run evals on changed skills
