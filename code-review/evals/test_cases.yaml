@@ -1,0 +1,25 @@
+- id: find-production-bugs
+  prompt: "Review this code:\n```python\ndef transfer(from_acc, to_acc, amount):\n    from_acc.balance -= amount\n    to_acc.balance += amount\n    db.save(from_acc)\n    db.save(to_acc)\n    return {'status': 'ok'}\n```"
+  expectations:
+    - "Identified missing transaction/atomicity (two saves can partially fail)"
+    - "Identified missing balance check (can go negative)"
+    - "Identified missing concurrency control (race condition)"
+    - "Each finding has a severity level (Critical/High/Medium/Low)"
+    - "Each finding has a specific fix suggestion"
+
+- id: security-review
+  prompt: "Review this code:\n```javascript\napp.get('/user/:id', (req, res) => {\n  const user = db.query(`SELECT * FROM users WHERE id = ${req.params.id}`);\n  res.json(user);\n});\n```"
+  expectations:
+    - "Identified SQL injection vulnerability"
+    - "Identified missing authentication/authorization check"
+    - "Identified SELECT * potentially leaking sensitive columns"
+    - "Marked as Critical severity"
+    - "Did not praise the code"
+
+- id: report-format
+  prompt: "Review this code:\n```python\ndef get_users():\n    users = User.query.all()\n    for u in users:\n        u.orders = Order.query.filter_by(user_id=u.id).all()\n    return users\n```"
+  expectations:
+    - "Identified N+1 query problem"
+    - "Output includes summary (change count, finding count)"
+    - "Output includes severity-classified findings"
+    - "Suggests using ship after fixes"

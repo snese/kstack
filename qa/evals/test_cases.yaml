@@ -1,0 +1,15 @@
+- id: diff-aware
+  prompt: "qa"
+  expectations:
+    - "Attempted to read git diff to identify changes"
+    - "Identified affected routes/pages/files"
+    - "Produced a health score"
+    - "Output includes severity-classified issues or confirmed passes"
+
+- id: url-test
+  prompt: "qa https://example.com"
+  expectations:
+    - "Attempted to test the given URL"
+    - "Checked for page load errors"
+    - "Produced a QA report with health score"
+    - "Suggested ship if health score is acceptable"

@@ -1,0 +1,24 @@
+- id: redefine-problem
+  prompt: "I want to add a photo upload feature to my listing app so sellers can upload product photos."
+  expectations:
+    - "Did not accept 'photo upload' as the literal feature"
+    - "Redefined the job-to-be-done (e.g. help sellers create listings that sell)"
+    - "Proposed a 10-star version of the experience"
+    - "Converged to a pragmatic MVP"
+    - "Listed risks or assumptions to validate"
+
+- id: challenge-assumption
+  prompt: "I want to build a dashboard showing all agent execution status, just a table is fine."
+  expectations:
+    - "Challenged the 'just a table' assumption"
+    - "Thought from the user's perspective about what they really need"
+    - "Proposed alternatives beyond a simple table"
+    - "Suggested phased implementation"
+
+- id: output-format
+  prompt: "I want Kiro to automatically write my weekly report."
+  expectations:
+    - "Output includes a 'Problem Redefined' section"
+    - "Output includes a '10-Star Version' section"
+    - "Output includes a 'Pragmatic Plan' section"
+    - "Suggests using plan-eng as next step"

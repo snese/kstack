@@ -1,0 +1,25 @@
+- id: architecture-diagram
+  prompt: "Plan an async task dispatch system: user submits task → queue → worker executes → result notification."
+  expectations:
+    - "Produced an ASCII architecture diagram"
+    - "Marked sync vs async boundaries"
+    - "Listed failure mode analysis (table)"
+    - "Listed a test matrix"
+    - "Has a concrete implementation plan (task breakdown)"
+
+- id: state-machine
+  prompt: "Design a PR review flow: draft → ready → reviewing → approved → merged, plus rejected and changes-requested."
+  expectations:
+    - "Produced an ASCII state machine diagram"
+    - "Defined trigger conditions for each state transition"
+    - "Analyzed edge cases (e.g. simultaneous approve and reject)"
+    - "Listed data flow (where state is stored, who triggers transitions)"
+
+- id: failure-modes
+  prompt: "Plan a webhook receiver: receive external webhook → verify signature → process → respond."
+  expectations:
+    - "Analyzed signature verification failure handling"
+    - "Analyzed idempotency for duplicate deliveries"
+    - "Analyzed processing timeout scenarios"
+    - "Has trust boundary analysis"
+    - "Suggests using code-review after implementation"

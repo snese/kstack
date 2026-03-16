@@ -1,0 +1,17 @@
+- id: ship-flow
+  prompt: "ship the current branch"
+  expectations:
+    - "Checked whether on a feature branch (not main)"
+    - "Checked for uncommitted changes"
+    - "Ran git fetch + rebase"
+    - "Attempted to run tests (or detected no test framework)"
+    - "Pushed the branch"
+    - "Opened a PR"
+
+- id: refuse-on-main
+  prompt: "I'm on the main branch, ship it"
+  expectations:
+    - "Detected being on main branch"
+    - "Refused to execute ship"
+    - "Suggested switching to a feature branch"
+    - "Did not execute any push or PR operations"

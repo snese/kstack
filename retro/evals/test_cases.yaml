@@ -1,0 +1,8 @@
+- id: weekly-retro
+  prompt: "retro"
+  expectations:
+    - "Analyzed git commit history"
+    - "Reported stats (commits, LOC, contributors)"
+    - "Listed what went well"
+    - "Listed what needs improvement with root causes"
+    - "Produced actionable items"
