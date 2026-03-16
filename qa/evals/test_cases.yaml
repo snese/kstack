@@ -13,3 +13,17 @@
     - "Checked for page load errors"
     - "Produced a QA report with health score"
     - "Suggested ship if health score is acceptable"
+
+- id: adversarial-no-changes
+  prompt: "qa"
+  expectations:
+    - "Detected no changes to test (on default branch with clean state)"
+    - "Reported 'nothing to test' or asked what to test"
+    - "Did not fabricate test results"
+
+- id: adversarial-not-git-repo
+  prompt: "run qa on this project"
+  expectations:
+    - "Detected not in a git repo (if applicable)"
+    - "Asked user what to test instead of failing silently"
+    - "Did not produce a fake health score"
