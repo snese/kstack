@@ -5,6 +5,10 @@ on:
     - cron: '0 9 * * 1'  # Every Monday 9:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   check-upstream:
     runs-on: ubuntu-latest
@@ -16,10 +20,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Read last known commit
-          LAST_KNOWN=$(cat .upstream-sha 2>/dev/null || echo "none")
-
-          # Get latest gstack commit
+          LAST_KNOWN=$(cat .upstream-sha 2>/dev/null | tr -d '\n' || echo "none")
           LATEST=$(gh api repos/garrytan/gstack/commits/main --jq '.sha')
           LATEST_SHORT=$(echo "$LATEST" | head -c 7)
           LATEST_MSG=$(gh api repos/garrytan/gstack/commits/main --jq '.commit.message' | head -1)
@@ -31,52 +32,89 @@ jobs:
 
           if [ "$LAST_KNOWN" = "$LATEST" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes detected."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected: $LAST_KNOWN -> $LATEST_SHORT"
 
-            # Get commit log since last known
             if [ "$LAST_KNOWN" != "none" ]; then
               COMMITS=$(gh api "repos/garrytan/gstack/compare/${LAST_KNOWN}...${LATEST}" \
-                --jq '.commits | map("- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])) | join("\n")' 2>/dev/null || echo "- Unable to fetch diff")
+                --jq '[.commits[] | "- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])] | join("\n")' 2>/dev/null || echo "- Unable to fetch diff")
+              FILES=$(gh api "repos/garrytan/gstack/compare/${LAST_KNOWN}...${LATEST}" \
+                --jq '[.files[].filename] | map(select(test("^(plan-ceo|plan-eng|review|ship|qa|retro)/"))) | if length == 0 then "No skill files changed" else join("\n") end' 2>/dev/null || echo "- Unable to determine")
             else
               COMMITS=$(gh api 'repos/garrytan/gstack/commits?per_page=10' \
-                --jq 'map("- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])) | join("\n")')
+                --jq '[.[] | "- `" + (.sha | .[:7]) + "` " + (.commit.message | split("\n") | .[0])] | join("\n")')
+              FILES="First sync — review all skills"
             fi
+
+            # Multi-line env vars
             echo "COMMITS<<EOF" >> "$GITHUB_ENV"
             echo "$COMMITS" >> "$GITHUB_ENV"
             echo "EOF" >> "$GITHUB_ENV"
+            echo "FILES<<EOF" >> "$GITHUB_ENV"
+            echo "$FILES" >> "$GITHUB_ENV"
+            echo "EOF" >> "$GITHUB_ENV"
           fi
 
-      - name: Open issue if changed
+      - name: Ensure upstream label exists
         if: steps.check.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if an open upstream issue already exists
-          EXISTING=$(gh issue list --label upstream --state open --json number --jq 'length')
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Open upstream issue already exists, skipping."
-            exit 0
+          gh label create upstream --description "Upstream gstack changes" --color "1d76db" 2>/dev/null || true
+
+      - name: Open or update issue
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh issue list --label upstream --state open --json number --jq '.[0].number // empty')
+
+          BODY="gstack has new commits since last sync.
+
+          **Latest:** \`${{ steps.check.outputs.latest_short }}\` ${{ steps.check.outputs.latest_msg }}
+          **Compare:** https://github.com/garrytan/gstack/compare/${{ steps.check.outputs.last_known }}...${{ steps.check.outputs.latest }}
+
+          ### New commits
+          ${COMMITS}
+
+          ### Affected skill files
+          ${FILES}
+
+          ### Mapping
+          | gstack | kstack | Action needed? |
+          |--------|--------|----------------|
+          | plan-ceo-review | plan-product | Check diff |
+          | plan-eng-review | plan-eng | Check diff |
+          | review | code-review | Check diff |
+          | ship | ship | Check diff |
+          | qa / qa-only | qa | Check diff |
+          | retro | retro | Check diff |
+          | browse | N/A | Skip |
+          | setup-browser-cookies | N/A | Skip |
+
+          ### Checklist
+          - [ ] Read the gstack diff
+          - [ ] Identify changes relevant to kstack
+          - [ ] Adapt to Kiro CLI SKILL.md format (remove Go templates, Playwright, Greptile, slash commands)
+          - [ ] Update affected skills
+          - [ ] Run evals on changed skills
+          - [ ] Close this issue"
+
+          # Dedent
+          BODY=$(echo "$BODY" | sed 's/^          //')
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Updated existing issue #$EXISTING"
+          else
+            gh issue create \
+              --title "Upstream: gstack updated (${{ steps.check.outputs.latest_short }})" \
+              --label "upstream" \
+              --body "$BODY"
+            echo "Created new upstream issue"
           fi
-
-          gh issue create \
-            --title "Upstream: gstack updated (${{ steps.check.outputs.latest_short }})" \
-            --label "upstream" \
-            --body "gstack has new commits since last sync.
-
-**Latest commit:** \`${{ steps.check.outputs.latest_short }}\` ${{ steps.check.outputs.latest_msg }}
-**Compare:** https://github.com/garrytan/gstack/compare/${{ steps.check.outputs.last_known }}...${{ steps.check.outputs.latest }}
-
-### New commits
-${COMMITS}
-
-### Review checklist
-- [ ] Read the gstack diff
-- [ ] Identify changes relevant to kstack skills
-- [ ] Adapt changes to Kiro CLI SKILL.md format
-- [ ] Update affected skills
-- [ ] Run evals on changed skills
-- [ ] Update \`.upstream-sha\` to \`${{ steps.check.outputs.latest }}\`"
 
       - name: Update upstream SHA
         if: steps.check.outputs.changed == 'true'
@@ -87,5 +125,5 @@ ${COMMITS}
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .upstream-sha
-          git commit -m "chore: update upstream-sha to ${{ steps.check.outputs.latest_short }}"
+          git commit -m "chore: track upstream gstack ${{ steps.check.outputs.latest_short }}"
           git push
