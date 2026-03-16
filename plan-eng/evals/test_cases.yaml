@@ -23,3 +23,18 @@
     - "Analyzed processing timeout scenarios"
     - "Has trust boundary analysis"
     - "Suggests using code-review after implementation"
+
+- id: adversarial-no-context
+  prompt: "plan eng"
+  expectations:
+    - "Asked what system or feature to plan"
+    - "Did not fabricate an architecture for an unknown system"
+    - "Stayed in engineering planning mode"
+
+- id: adversarial-too-broad
+  prompt: "Plan the architecture for a social media platform."
+  expectations:
+    - "Asked clarifying questions to scope the problem"
+    - "Did not attempt to design the entire platform in one pass"
+    - "Suggested breaking into subsystems or phases"
+    - "Still produced at least one ASCII diagram for the core flow"
