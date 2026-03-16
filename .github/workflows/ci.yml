@@ -12,94 +12,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PyYAML
-        run: pip install pyyaml
-
       - name: Validate SKILL.md front matter
+        shell: bash
         run: |
           ERRORS=0
           for skill_dir in plan-product plan-eng code-review ship qa retro; do
             FILE="$skill_dir/SKILL.md"
             if [[ ! -f "$FILE" ]]; then
-              echo "❌ $skill_dir: SKILL.md missing"
+              echo "FAIL $skill_dir: SKILL.md missing"
               ERRORS=$((ERRORS + 1))
               continue
             fi
 
-            # Check front matter exists
-            if ! head -1 "$FILE" | grep -q '^---$'; then
-              echo "❌ $skill_dir: missing front matter"
+            FIRST=$(head -1 "$FILE")
+            if [[ "$FIRST" != "---" ]]; then
+              echo "FAIL $skill_dir: missing front matter"
               ERRORS=$((ERRORS + 1))
               continue
             fi
 
-            # Extract front matter between first two ---
             FM=$(awk '/^---$/{n++; next} n==1{print} n==2{exit}' "$FILE")
 
-            # Check required fields
             HAS_NAME=$(echo "$FM" | grep -c '^name:' || true)
             HAS_DESC=$(echo "$FM" | grep -c '^description:' || true)
 
             if [[ "$HAS_NAME" -eq 0 ]]; then
-              echo "❌ $skill_dir: front matter missing 'name'"
+              echo "FAIL $skill_dir: missing name"
               ERRORS=$((ERRORS + 1))
             fi
             if [[ "$HAS_DESC" -eq 0 ]]; then
-              echo "❌ $skill_dir: front matter missing 'description'"
+              echo "FAIL $skill_dir: missing description"
               ERRORS=$((ERRORS + 1))
             fi
 
-            # Check name matches directory
             FM_NAME=$(echo "$FM" | grep '^name:' | sed 's/name: *//' | tr -d '"' | tr -d "'")
             if [[ "$FM_NAME" != "$skill_dir" ]]; then
-              echo "❌ $skill_dir: name '$FM_NAME' doesn't match directory"
+              echo "FAIL $skill_dir: name mismatch ($FM_NAME)"
               ERRORS=$((ERRORS + 1))
             else
-              echo "✅ $skill_dir: OK"
+              echo "OK $skill_dir"
             fi
           done
 
           if [[ $ERRORS -gt 0 ]]; then
-            echo ""
-            echo "$ERRORS error(s) found."
+            echo "$ERRORS error(s)"
             exit 1
           fi
+          echo "All skills validated."
 
       - name: Validate eval test cases
-        run: |
-          ERRORS=0
-          for skill_dir in plan-product plan-eng code-review ship qa retro; do
-            EVAL="$skill_dir/evals/test_cases.yaml"
-            if [[ ! -f "$EVAL" ]]; then
-              echo "❌ $skill_dir: evals/test_cases.yaml missing"
-              ERRORS=$((ERRORS + 1))
-              continue
-            fi
-
-            python3 << PYEOF
-import yaml, sys
-with open("$EVAL") as f:
-    data = yaml.safe_load(f)
-if not isinstance(data, list):
-    print("❌ $skill_dir: test_cases.yaml must be a list")
-    sys.exit(1)
-for i, case in enumerate(data):
-    for field in ["id", "prompt", "expectations"]:
-        if field not in case or not case[field]:
-            print(f"❌ $skill_dir: case {i} missing {field}")
-            sys.exit(1)
-print(f"✅ $skill_dir: {len(data)} test case(s) valid")
-PYEOF
-            if [[ $? -ne 0 ]]; then
-              ERRORS=$((ERRORS + 1))
-            fi
-          done
-
-          if [[ $ERRORS -gt 0 ]]; then
-            echo ""
-            echo "$ERRORS error(s) found."
-            exit 1
-          fi
+        run: python3 scripts/validate-evals.py
 
       - name: Check setup script syntax
-        run: bash -n setup && echo "✅ setup: syntax OK"
+        run: bash -n setup && echo "OK setup"
