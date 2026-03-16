@@ -23,3 +23,18 @@
     - "Output includes summary (change count, finding count)"
     - "Output includes severity-classified findings"
     - "Suggests using ship after fixes"
+
+- id: adversarial-no-code
+  prompt: "code review"
+  expectations:
+    - "Detected no code was provided and no git context available"
+    - "Asked user what to review or suggested providing code"
+    - "Did not fabricate a review of nonexistent code"
+
+- id: adversarial-clean-code
+  prompt: "Review this code:\n```python\nfrom decimal import Decimal\n\ndef add(a: Decimal, b: Decimal) -> Decimal:\n    return a + b\n```"
+  expectations:
+    - "Did not fabricate serious issues for trivially correct code"
+    - "Acknowledged the code is simple and low-risk"
+    - "Still checked for edge cases (e.g. None input, overflow)"
+    - "Verdict was ship-ready or similar"
