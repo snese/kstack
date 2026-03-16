@@ -1,27 +1,64 @@
 #!/usr/bin/env bash
-# kstack setup — install skills to ~/.kiro/skills/
+# kstack setup — install/uninstall skills to ~/.kiro/skills/
+# Usage: ./setup          (install)
+#        ./setup remove   (uninstall)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$HOME/.kiro/skills"
 SKILLS=(plan-product plan-eng code-review ship qa retro)
+VERSION=$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")
 
+if [[ "${1:-}" == "remove" ]]; then
+  echo "Uninstalling kstack v${VERSION}..."
+  for skill in "${SKILLS[@]}"; do
+    dest="$SKILLS_DIR/$skill"
+    if [[ -L "$dest" ]]; then
+      rm -f "$dest"
+      echo "  ✅ removed $skill"
+    else
+      echo "  ⏭️  $skill not a symlink, skipping"
+    fi
+  done
+  echo ""
+  echo "kstack uninstalled. Repo at $SCRIPT_DIR left intact."
+  echo "To fully remove: rm -rf $SCRIPT_DIR"
+  exit 0
+fi
+
+echo "Installing kstack v${VERSION}..."
 mkdir -p "$SKILLS_DIR"
 
+INSTALLED=0
 for skill in "${SKILLS[@]}"; do
   src="$SCRIPT_DIR/$skill"
   dest="$SKILLS_DIR/$skill"
-  if [[ -d "$src" ]]; then
-    if [[ -L "$dest" ]]; then
-      rm -f "$dest"
-    fi
-    ln -sf "$src" "$dest"
-    echo "  ✅ $skill → $dest"
-  else
-    echo "  ⚠️  $skill not found in $SCRIPT_DIR"
+
+  if [[ ! -d "$src" ]]; then
+    echo "  ⚠️  $skill not found in repo"
+    continue
   fi
+
+  # Handle existing target
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "  ⚠️  $skill exists as directory (not symlink), backing up to ${dest}.bak"
+    mv "$dest" "${dest}.bak"
+  elif [[ -L "$dest" ]]; then
+    rm -f "$dest"
+  fi
+
+  ln -sf "$src" "$dest"
+  echo "  ✅ $skill"
+  INSTALLED=$((INSTALLED + 1))
 done
 
 echo ""
-echo "kstack installed. ${#SKILLS[@]} skills linked to $SKILLS_DIR"
-echo "Try: tell Kiro 'plan product', 'code review', 'ship', 'qa', or 'retro'"
+echo "kstack v${VERSION}: ${INSTALLED}/${#SKILLS[@]} skills installed to $SKILLS_DIR"
+echo ""
+echo "Usage — tell Kiro any of these:"
+echo "  • plan product    — rethink the problem, find the 10-star version"
+echo "  • plan eng        — architecture, diagrams, failure modes, test matrix"
+echo "  • code review     — paranoid review: what blows up in prod?"
+echo "  • ship            — sync main → test → push → PR"
+echo "  • qa              — diff-aware testing with health score"
+echo "  • retro           — data-driven retrospective"
