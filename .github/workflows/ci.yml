@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: Validate SKILL.md front matter
         run: |
           ERRORS=0
@@ -23,22 +26,25 @@ jobs:
               continue
             fi
 
-            # Check front matter exists (starts with ---)
+            # Check front matter exists
             if ! head -1 "$FILE" | grep -q '^---$'; then
-              echo "❌ $skill_dir: missing front matter (no opening ---)"
+              echo "❌ $skill_dir: missing front matter"
               ERRORS=$((ERRORS + 1))
               continue
             fi
 
-            # Extract front matter
-            FM=$(sed -n '2,/^---$/p' "$FILE" | head -n -1)
+            # Extract front matter between first two ---
+            FM=$(awk '/^---$/{n++; next} n==1{print} n==2{exit}' "$FILE")
 
             # Check required fields
-            if ! echo "$FM" | grep -q '^name:'; then
+            HAS_NAME=$(echo "$FM" | grep -c '^name:' || true)
+            HAS_DESC=$(echo "$FM" | grep -c '^description:' || true)
+
+            if [[ "$HAS_NAME" -eq 0 ]]; then
               echo "❌ $skill_dir: front matter missing 'name'"
               ERRORS=$((ERRORS + 1))
             fi
-            if ! echo "$FM" | grep -q '^description:'; then
+            if [[ "$HAS_DESC" -eq 0 ]]; then
               echo "❌ $skill_dir: front matter missing 'description'"
               ERRORS=$((ERRORS + 1))
             fi
@@ -46,7 +52,7 @@ jobs:
             # Check name matches directory
             FM_NAME=$(echo "$FM" | grep '^name:' | sed 's/name: *//' | tr -d '"' | tr -d "'")
             if [[ "$FM_NAME" != "$skill_dir" ]]; then
-              echo "❌ $skill_dir: front matter name '$FM_NAME' doesn't match directory"
+              echo "❌ $skill_dir: name '$FM_NAME' doesn't match directory"
               ERRORS=$((ERRORS + 1))
             else
               echo "✅ $skill_dir: OK"
@@ -70,26 +76,23 @@ jobs:
               continue
             fi
 
-            # Validate YAML syntax
-            python3 -c "
+            python3 << PYEOF
 import yaml, sys
-with open('$EVAL') as f:
+with open("$EVAL") as f:
     data = yaml.safe_load(f)
 if not isinstance(data, list):
-    print('❌ $skill_dir: test_cases.yaml must be a list')
+    print("❌ $skill_dir: test_cases.yaml must be a list")
     sys.exit(1)
 for i, case in enumerate(data):
-    if 'id' not in case:
-        print(f'❌ $skill_dir: case {i} missing id')
-        sys.exit(1)
-    if 'prompt' not in case:
-        print(f'❌ $skill_dir: case {case["id"]} missing prompt')
-        sys.exit(1)
-    if 'expectations' not in case or not case['expectations']:
-        print(f'❌ $skill_dir: case {case["id"]} missing expectations')
-        sys.exit(1)
-print(f'✅ $skill_dir: {len(data)} test case(s) valid')
-" || ERRORS=$((ERRORS + 1))
+    for field in ["id", "prompt", "expectations"]:
+        if field not in case or not case[field]:
+            print(f"❌ $skill_dir: case {i} missing {field}")
+            sys.exit(1)
+print(f"✅ $skill_dir: {len(data)} test case(s) valid")
+PYEOF
+            if [[ $? -ne 0 ]]; then
+              ERRORS=$((ERRORS + 1))
+            fi
           done
 
           if [[ $ERRORS -gt 0 ]]; then
@@ -98,6 +101,5 @@ print(f'✅ $skill_dir: {len(data)} test case(s) valid')
             exit 1
           fi
 
-      - name: Check setup script
-        run: |
-          bash -n setup && echo "✅ setup: syntax OK" || { echo "❌ setup: syntax error"; exit 1; }
+      - name: Check setup script syntax
+        run: bash -n setup && echo "✅ setup: syntax OK"
