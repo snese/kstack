@@ -64,4 +64,51 @@ jobs:
         run: python3 scripts/validate-evals.py
 
       - name: Check setup script syntax
-        run: bash -n setup && echo "OK setup"
+        run: bash -n setup && echo "OK setup syntax"
+
+      - name: Test setup install/verify/remove cycle
+        run: |
+          export HOME=$(mktemp -d)
+          chmod +x setup
+
+          # Install
+          ./setup
+          echo "--- install done ---"
+
+          # Verify
+          ./setup verify || true  # kiro-cli won't be present in CI
+          echo "--- verify done ---"
+
+          # Check symlinks exist
+          for s in plan-product plan-eng code-review ship qa retro; do
+            if [[ ! -L "$HOME/.kiro/skills/$s" ]]; then
+              echo "FAIL: $s symlink missing after install"
+              exit 1
+            fi
+          done
+          echo "OK: all symlinks created"
+
+          # Re-run install (idempotency)
+          ./setup
+          echo "OK: re-install safe"
+
+          # Remove
+          ./setup remove
+          for s in plan-product plan-eng code-review ship qa retro; do
+            if [[ -L "$HOME/.kiro/skills/$s" ]]; then
+              echo "FAIL: $s symlink still exists after remove"
+              exit 1
+            fi
+          done
+          echo "OK: all symlinks removed"
+
+          # Re-install after remove
+          ./setup
+          for s in plan-product plan-eng code-review ship qa retro; do
+            if [[ ! -L "$HOME/.kiro/skills/$s" ]]; then
+              echo "FAIL: $s symlink missing after re-install"
+              exit 1
+            fi
+          done
+          echo "OK: re-install after remove works"
+          echo "--- setup integration test passed ---"
