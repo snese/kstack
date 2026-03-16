@@ -6,3 +6,17 @@
     - "Listed what went well"
     - "Listed what needs improvement with root causes"
     - "Produced actionable items"
+
+- id: adversarial-empty-repo
+  prompt: "retro"
+  expectations:
+    - "Detected no commits or very few commits to analyze"
+    - "Reported insufficient data for a meaningful retro"
+    - "Did not fabricate stats or improvements"
+
+- id: adversarial-custom-period
+  prompt: "retro for the last 3 days"
+  expectations:
+    - "Adjusted git log timeframe to 3 days instead of default 1 week"
+    - "Produced stats scoped to the requested period"
+    - "Still followed the standard retro output format"
