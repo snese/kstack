@@ -1,0 +1,23 @@
+---
+name: New Skill Proposal
+description: Propose a new cognitive mode skill
+labels: [enhancement, new-skill]
+body:
+  - type: textarea
+    id: cognitive-mode
+    attributes:
+      label: What cognitive mode does this skill represent?
+      placeholder: "e.g. Security Auditor — think like an attacker reviewing the codebase"
+    validations:
+      required: true
+  - type: textarea
+    id: when-to-use
+    attributes:
+      label: When would you use this instead of existing skills?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example interaction
+      placeholder: "User says X, agent does Y"

@@ -1,0 +1,40 @@
+---
+name: Bug Report
+description: A skill isn't working as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: skill
+    attributes:
+      label: Which skill?
+      options:
+        - plan-product
+        - plan-eng
+        - code-review
+        - ship
+        - qa
+        - retro
+        - setup script
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      placeholder: Describe the issue
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - OS:
+        - kiro-cli version:
+        - kstack version:
