@@ -68,9 +68,14 @@ Kiro:  This week: 47 commits, +3.2k LOC, 38% tests.
        Improve: test ratio below 40% — add integration tests.
 ```
 
-## Install
+## Requirements
 
-**Requirements:** [Kiro CLI](https://kiro.dev) installed and working.
+- [Kiro CLI](https://kiro.dev) installed and working
+- macOS, Linux, or WSL
+- Git
+- Bash 4+
+
+## Install
 
 ### One-line install
 
@@ -107,6 +112,14 @@ This clones the repo and creates symlinks from each skill directory into `~/.kir
 ```
 
 Everything lives inside `~/.kiro/skills/`. Nothing touches your PATH or runs in the background. Pure Markdown — no binaries, no dependencies.
+
+### Verify installation
+
+```bash
+cd ~/.kiro/skills/kstack && ./setup verify
+```
+
+This checks that kiro-cli is available, the skills directory exists, and all symlinks point to valid SKILL.md files.
 
 ### Add to your repo (optional)
 
@@ -184,7 +197,7 @@ Paranoid staff engineer mode. Checklist covers security (injection, auth, secret
 
 ### `ship`
 
-Release engineer mode. Verify branch state → sync main → run tests → push → open PR. Stops on failure. No questions asked. No code changes.
+Release engineer mode. Verify branch state → sync main → run tests → push → open PR. Stops on failure. No questions asked. No code changes. Supports GitHub and GitLab.
 
 ### `qa`
 
@@ -214,16 +227,43 @@ Run evals with any LLM-as-judge framework, or manually verify by running each pr
 cd ~/.kiro/skills/kstack && git pull
 ```
 
-Symlinks mean the skills update immediately — no re-setup needed.
+Symlinks mean the skills update immediately — no re-setup needed. If new skills are added in an update, re-run `./setup` to create the new symlinks.
 
 ## Uninstalling
 
 ```bash
-for s in plan-product plan-eng code-review ship qa retro; do
-  rm -f ~/.kiro/skills/$s
-done
+cd ~/.kiro/skills/kstack && ./setup remove
+```
+
+This removes all symlinks. The repo directory is left intact. To fully remove:
+
+```bash
 rm -rf ~/.kiro/skills/kstack
 ```
+
+## Troubleshooting
+
+### "kiro-cli not found"
+
+kstack installs skills even without kiro-cli present. Install Kiro CLI from https://kiro.dev, then run `./setup verify`.
+
+### Broken symlinks
+
+```bash
+cd ~/.kiro/skills/kstack && ./setup verify
+```
+
+If any symlinks are broken, re-run `./setup` to recreate them.
+
+### Skills not showing up in Kiro
+
+1. Run `./setup verify` to confirm symlinks are correct
+2. Check that `~/.kiro/skills/{skill}/SKILL.md` is readable
+3. Restart your Kiro CLI session — skills are loaded at startup
+
+### Conflicts with existing skills
+
+If you already have a skill with the same name (e.g. `~/.kiro/skills/ship/`), the setup script backs it up to `~/.kiro/skills/ship.bak` before creating the symlink.
 
 ## How It Works
 
@@ -252,6 +292,8 @@ Guidelines:
 - One skill = one cognitive mode. Don't blend.
 - Include eval test cases for any new skill.
 - Keep skills platform-agnostic (no hardcoded paths, no personal config).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details. See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
