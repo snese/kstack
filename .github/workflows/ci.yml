@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md front matter
+        run: |
+          ERRORS=0
+          for skill_dir in plan-product plan-eng code-review ship qa retro; do
+            FILE="$skill_dir/SKILL.md"
+            if [[ ! -f "$FILE" ]]; then
+              echo "❌ $skill_dir: SKILL.md missing"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
+
+            # Check front matter exists (starts with ---)
+            if ! head -1 "$FILE" | grep -q '^---$'; then
+              echo "❌ $skill_dir: missing front matter (no opening ---)"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
+
+            # Extract front matter
+            FM=$(sed -n '2,/^---$/p' "$FILE" | head -n -1)
+
+            # Check required fields
+            if ! echo "$FM" | grep -q '^name:'; then
+              echo "❌ $skill_dir: front matter missing 'name'"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if ! echo "$FM" | grep -q '^description:'; then
+              echo "❌ $skill_dir: front matter missing 'description'"
+              ERRORS=$((ERRORS + 1))
+            fi
+
+            # Check name matches directory
+            FM_NAME=$(echo "$FM" | grep '^name:' | sed 's/name: *//' | tr -d '"' | tr -d "'")
+            if [[ "$FM_NAME" != "$skill_dir" ]]; then
+              echo "❌ $skill_dir: front matter name '$FM_NAME' doesn't match directory"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ $skill_dir: OK"
+            fi
+          done
+
+          if [[ $ERRORS -gt 0 ]]; then
+            echo ""
+            echo "$ERRORS error(s) found."
+            exit 1
+          fi
+
+      - name: Validate eval test cases
+        run: |
+          ERRORS=0
+          for skill_dir in plan-product plan-eng code-review ship qa retro; do
+            EVAL="$skill_dir/evals/test_cases.yaml"
+            if [[ ! -f "$EVAL" ]]; then
+              echo "❌ $skill_dir: evals/test_cases.yaml missing"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
+
+            # Validate YAML syntax
+            python3 -c "
+import yaml, sys
+with open('$EVAL') as f:
+    data = yaml.safe_load(f)
+if not isinstance(data, list):
+    print('❌ $skill_dir: test_cases.yaml must be a list')
+    sys.exit(1)
+for i, case in enumerate(data):
+    if 'id' not in case:
+        print(f'❌ $skill_dir: case {i} missing id')
+        sys.exit(1)
+    if 'prompt' not in case:
+        print(f'❌ $skill_dir: case {case["id"]} missing prompt')
+        sys.exit(1)
+    if 'expectations' not in case or not case['expectations']:
+        print(f'❌ $skill_dir: case {case["id"]} missing expectations')
+        sys.exit(1)
+print(f'✅ $skill_dir: {len(data)} test case(s) valid')
+" || ERRORS=$((ERRORS + 1))
+          done
+
+          if [[ $ERRORS -gt 0 ]]; then
+            echo ""
+            echo "$ERRORS error(s) found."
+            exit 1
+          fi
+
+      - name: Check setup script
+        run: |
+          bash -n setup && echo "✅ setup: syntax OK" || { echo "❌ setup: syntax error"; exit 1; }
